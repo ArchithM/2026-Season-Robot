@@ -5,12 +5,8 @@ package org.team4639.frc2026.subsystems.vision;
 import static org.team4639.frc2026.subsystems.vision.VisionConstants.*;
 
 import java.util.function.Predicate;
-
-import javax.annotation.processing.Generated;
-
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-
 import org.team4639.frc2026.subsystems.vision.VisionIO.PoseObservation;
 
 @AllArgsConstructor
