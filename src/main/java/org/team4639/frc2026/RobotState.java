@@ -10,6 +10,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.interpolation.TimeInterpolatableBuffer;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.numbers.N1;
@@ -23,6 +24,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.Getter;
+import lombok.Setter;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 import org.team4639.frc2026.Constants.Mode;
@@ -87,6 +89,10 @@ public class RobotState extends VirtualSubsystem implements VisionConsumer {
     private final String CHOREO_SETPOINT_KEY = "/Internal/Choreo Setpoint";
 
     private final TimeInterpolatableBuffer<Pose2d> choreoSetpoints = TimeInterpolatableBuffer.createBuffer(0.05);
+
+    @Getter
+    @Setter
+    private ChassisSpeeds currentRobotSpeeds;
 
     /**
      * Returns the pose relative to the blue alliance wall.
@@ -249,6 +255,6 @@ public class RobotState extends VirtualSubsystem implements VisionConsumer {
                 cameraIndex,
                 AllianceFlipUtil.apply(visionRobotPoseMeters),
                 timestampSeconds,
-                visionMeasurementStdDevs));
+                visionMeasurementStdDevs.div(10)));
     }
 }

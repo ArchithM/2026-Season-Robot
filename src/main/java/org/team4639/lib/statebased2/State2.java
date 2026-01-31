@@ -5,6 +5,7 @@ package org.team4639.lib.statebased2;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,6 +24,7 @@ public class State2 {
     private Set<InstantCommand> commandsOnExit;
     private Map<BooleanSupplier, Supplier<State2>> endConditions;
     private StateMachine2 stateMachine;
+    private boolean initialized = false;
 
     protected State2(String name, StateMachine2 stateMachine) {
         this.name = name;
@@ -54,6 +56,7 @@ public class State2 {
                             + "'s parent state machine!");
         }
         Arrays.stream(commands).forEach(commandsWhileRunning::add);
+        this.initialized = false;
         return this;
     }
 
@@ -83,6 +86,7 @@ public class State2 {
                             + "'s parent state machine!");
         }
         Arrays.stream(commands).forEach(commandsOnEnter::add);
+        this.initialized = false;
         return this;
     }
 
@@ -128,13 +132,46 @@ public class State2 {
         return this;
     }
 
+    public State2 onTrigger(Trigger trigger, Supplier<State2> nextStateSupplier) {
+        new Trigger(new InternalTwoStateTrigger(new Trigger(() -> stateMachine.getActiveState() == this), trigger))
+                .onTrue(new InstantCommand(() -> stateMachine.setState(nextStateSupplier.get())));
+        return this;
+    }
+
     protected void init() {
         commandsOnEnter.forEach(CommandScheduler.getInstance()::schedule);
         commandsWhileRunning.forEach(CommandScheduler.getInstance()::schedule);
+        this.initialized = true;
     }
 
     protected void exit() {
         commandsWhileRunning.forEach(CommandScheduler.getInstance()::cancel);
         commandsOnExit.forEach(CommandScheduler.getInstance()::schedule);
+        this.initialized = false;
+    }
+
+    /**
+     * Because of Things, only returns true when it should *fire*, not
+     * all the time it should be true.
+     */
+    private class InternalTwoStateTrigger implements BooleanSupplier {
+        private final BooleanSupplier first;
+        private final BooleanSupplier second;
+        private boolean firstWasTrue = false;
+        private boolean secondWasTrue = false;
+
+        public InternalTwoStateTrigger(Trigger first, Trigger second) {
+            this.first = first;
+            this.second = second;
+        }
+
+        public boolean getAsBoolean() {
+            boolean ret = firstWasTrue && !secondWasTrue && first.getAsBoolean() && second.getAsBoolean();
+
+            firstWasTrue = first.getAsBoolean();
+            secondWasTrue = second.getAsBoolean();
+
+            return ret;
+        }
     }
 }

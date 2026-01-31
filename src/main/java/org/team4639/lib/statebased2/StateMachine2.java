@@ -2,7 +2,9 @@
 
 package org.team4639.lib.statebased2;
 
+import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.Subsystem;
+import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -13,14 +15,20 @@ import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
+import org.littletonrobotics.junction.Logger;
 import org.team4639.lib.util.VirtualSubsystem;
 
+/**
+ * V2 implementation of state machine
+ */
 public class StateMachine2 extends VirtualSubsystem {
     private State2 defaultState = null;
     private State2 currentState = null;
     private final Set<State2> allStates;
     protected final Set<Subsystem> subsystems;
     private final Map<String, UnaryOperator<State2>> templates;
+    private String networkTablesKey = null;
+    private boolean restartOnTeleop = false;
 
     private final String DEFAULT_TEMPLATE_KEY = "DEFAULT";
 
@@ -61,10 +69,6 @@ public class StateMachine2 extends VirtualSubsystem {
     public State2 defaultState(String name) {
         var state = state(name);
         this.defaultState = state;
-        if (this.currentState == null) {
-            this.currentState = this.defaultState;
-            this.currentState.init();
-        }
         return state;
     }
 
@@ -118,11 +122,17 @@ public class StateMachine2 extends VirtualSubsystem {
     }
 
     /**
-     * Does nothing. This does not need to be called by user code.
+     * Handles default states. Does not need to be called by user code.
      */
     @Override
     public void periodic() {
-        // DO nothing
+        // handle default state and state nulls
+        if (defaultState == null) {
+            throw new RuntimeException("Default state has not been configured!");
+        } else if (currentState == null) {
+            currentState = defaultState;
+            currentState.init();
+        }
     }
 
     /**
@@ -131,11 +141,8 @@ public class StateMachine2 extends VirtualSubsystem {
      */
     @Override
     public void periodicAfterScheduler() {
-        // handle default state and state nulls
-        if (defaultState == null) {
-            throw new RuntimeException("Default state has not been configured!");
-        } else if (currentState == null) {
-            currentState = defaultState;
+        if (!currentState.isInitialized()) {
+            currentState.exit();
             currentState.init();
         }
 
@@ -158,9 +165,40 @@ public class StateMachine2 extends VirtualSubsystem {
                 currentState.init();
             }
         });
+
+        if (networkTablesKey != null) {
+            Logger.recordOutput(networkTablesKey, currentState.getName());
+        }
     }
 
     public State2 getActiveState() {
         return this.currentState;
+    }
+
+    /**
+     * Publishes the name of the current running state of this
+     * state machine to NT.
+     * @param key the key. The fully qualified name of the NetworkTables
+     * path will be "/Internal/State/<key>"
+     * @return this object, for method chaining.
+     */
+    public StateMachine2 publishToNT(String key) {
+        this.networkTablesKey = "/Internal/State/" + key;
+        return this;
+    }
+
+    protected void setState(State2 state) {
+        this.currentState.exit();
+        this.currentState = state;
+        this.currentState.init();
+    }
+
+    // TODO: find a better way to implement this
+    public StateMachine2 restartOnTeleop() {
+        this.restartOnTeleop = true;
+        RobotModeTriggers.teleop().onTrue(new InstantCommand(() -> {
+            setState(defaultState);
+        }));
+        return this;
     }
 }

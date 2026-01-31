@@ -7,6 +7,7 @@ import static org.team4639.frc2026.subsystems.vision.VisionConstants.*;
 import java.util.function.Predicate;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import org.team4639.frc2026.RobotState;
 import org.team4639.frc2026.subsystems.vision.VisionIO.PoseObservation;
 
 @AllArgsConstructor
@@ -17,7 +18,12 @@ public enum VisionFilters {
     FIELD_BOUNDARIES(observation -> observation.pose().getX() < 0.0
             || observation.pose().getX() > aprilTagLayout.getFieldLength()
             || observation.pose().getY() < 0.0
-            || observation.pose().getY() > aprilTagLayout.getFieldWidth());
+            || observation.pose().getY() > aprilTagLayout.getFieldWidth()),
+    ROBOT_MOVE_TOO_FAST(observation -> {
+        var speeds = RobotState.getInstance().getCurrentRobotSpeeds();
+        return (Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond) >= maxAllowedLinearSpeed)
+                || speeds.omegaRadiansPerSecond >= maxAllowedAngularSpeed;
+    });
 
     /**
      * Returns true if we want to reject the pose and false if we keep it

@@ -9,6 +9,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.util.Units;
@@ -22,15 +23,18 @@ import java.text.NumberFormat;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.DoubleSupplier;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import org.littletonrobotics.junction.Logger;
+import org.team4639.frc2026.RobotState;
 import org.team4639.frc2026.subsystems.drive.Drive;
 
 public class DriveCommands {
     private static final double DEADBAND = 0.1;
     private static final double ANGLE_KP = 5.0;
     private static final double ANGLE_KD = 0.4;
-    private static final double ANGLE_MAX_VELOCITY = 8.0;
-    private static final double ANGLE_MAX_ACCELERATION = 20.0;
+    private static final double ANGLE_MAX_VELOCITY = Units.rotationsToRadians(3);
+    private static final double ANGLE_MAX_ACCELERATION = 3 * ANGLE_MAX_VELOCITY;
     private static final double FF_START_DELAY = 2.0; // Secs
     private static final double FF_RAMP_RATE = 0.1; // Volts/Sec
     private static final double WHEEL_RADIUS_MAX_VELOCITY = 0.25; // Rad/Sec
@@ -119,6 +123,74 @@ public class DriveCommands {
                                     isFlipped
                                             ? drive.getRotation().plus(new Rotation2d(Math.PI))
                                             : drive.getRotation()));
+                        },
+                        drive)
+
+                // Reset PID controller when command starts
+                .beforeStarting(() -> angleController.reset(drive.getRotation().getRadians()));
+    }
+
+    /**
+     * Field relative drive command using joystick for linear control and PID for angular control.
+     * Possible use cases include snapping to an angle, aiming at a vision target, or controlling
+     * absolute rotation with a joystick.
+     */
+    public static Command joystickDriveAtAngleWithLookahead(
+            Drive drive,
+            DoubleSupplier xSupplier,
+            DoubleSupplier ySupplier,
+            Function<Pose2d, Rotation2d> rotationSupplier) {
+
+        // Create PID controller
+        ProfiledPIDController angleController = new ProfiledPIDController(
+                ANGLE_KP, 0.0, ANGLE_KD, new TrapezoidProfile.Constraints(ANGLE_MAX_VELOCITY, ANGLE_MAX_ACCELERATION));
+        angleController.enableContinuousInput(-Math.PI, Math.PI);
+
+        // Construct command
+        return Commands.run(
+                        () -> {
+                            // Get linear velocity
+                            Translation2d linearVelocity =
+                                    getLinearVelocityFromJoysticks(xSupplier.getAsDouble(), ySupplier.getAsDouble());
+
+                            // Calculate desired Rotational rate of change
+                            var desiredAngle = rotationSupplier
+                                    .apply(RobotState.getInstance().getEstimatedPose())
+                                    .getRadians();
+                            var currentSpeeds = RobotState.getInstance().getCurrentRobotSpeeds();
+                            var dT = 0.001;
+                            double desiredOmega = (rotationSupplier
+                                                    .apply(RobotState.getInstance()
+                                                            .getEstimatedPose()
+                                                            .exp(new Twist2d(
+                                                                    currentSpeeds.vxMetersPerSecond * dT,
+                                                                    currentSpeeds.vyMetersPerSecond * dT,
+                                                                    currentSpeeds.omegaRadiansPerSecond * dT)))
+                                                    .getRadians()
+                                            - desiredAngle)
+                                    / dT;
+
+                            // Calculate angular speed
+                            double omega = angleController.calculate(
+                                            drive.getRotation().getRadians(), desiredAngle)
+                                    + desiredOmega * 1.0;
+
+                            // Convert to field relative speeds & send command
+                            ChassisSpeeds speeds = new ChassisSpeeds(
+                                    linearVelocity.getX() * drive.getMaxLinearSpeedMetersPerSec(),
+                                    linearVelocity.getY() * drive.getMaxLinearSpeedMetersPerSec(),
+                                    omega);
+                            boolean isFlipped = DriverStation.getAlliance().isPresent()
+                                    && DriverStation.getAlliance().get() == Alliance.Red;
+                            drive.runVelocity(ChassisSpeeds.fromFieldRelativeSpeeds(
+                                    speeds,
+                                    isFlipped
+                                            ? drive.getRotation().plus(new Rotation2d(Math.PI))
+                                            : drive.getRotation()));
+                            var curPose = RobotState.getInstance().getEstimatedPose();
+                            Logger.recordOutput(
+                                    "Internal/DesiredPose",
+                                    new Pose2d(curPose.getX(), curPose.getY(), Rotation2d.fromRadians(desiredAngle)));
                         },
                         drive)
 

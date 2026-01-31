@@ -33,6 +33,9 @@ public class VisionConstants {
             new Rotation3d(0.0, Units.degreesToRadians(-28.125), 0.0)
                     .rotateBy(new Rotation3d(0.0, 0.0, Units.degreesToRadians(-30.0))));
 
+    public static double maxAllowedLinearSpeed = 3; // meters per second
+    public static double maxAllowedAngularSpeed = 6 * Math.PI; // radians per second
+
     // Basic filtering thresholds
     public static double maxAmbiguity = 0.3;
     public static double maxZError = 0.75;

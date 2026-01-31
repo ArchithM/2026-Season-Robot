@@ -2,12 +2,11 @@
 
 package org.team4639.frc2026;
 
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import org.team4639.frc2026.auto.AutoCommands;
@@ -20,9 +19,14 @@ import org.team4639.frc2026.subsystems.drive.ModuleIO;
 import org.team4639.frc2026.subsystems.drive.ModuleIOTalonFX;
 import org.team4639.frc2026.subsystems.drive.ModuleIOTalonFXSim;
 import org.team4639.frc2026.subsystems.drive.generated.TunerConstants;
+import org.team4639.frc2026.subsystems.intake.Intake;
+import org.team4639.frc2026.subsystems.intake.IntakeIO;
+import org.team4639.frc2026.subsystems.intake.IntakeIOSim;
+import org.team4639.frc2026.subsystems.intake.IntakeIOTalonFX;
 import org.team4639.frc2026.subsystems.vision.Vision;
 import org.team4639.frc2026.subsystems.vision.VisionConstants;
 import org.team4639.frc2026.subsystems.vision.VisionIOPhotonVisionSim;
+import org.team4639.lib.statebased2.StateMachine2;
 import org.team4639.lib.util.LoggedLazyAutoChooser;
 import org.team4639.lib.util.geometry.AllianceFlipUtil;
 
@@ -36,12 +40,16 @@ public class RobotContainer {
     // Subsystems
     private final Drive drive;
     private final Vision vision;
+    private final Intake intake;
 
     // Controller
     private final CommandXboxController controller = new CommandXboxController(0);
 
     // Dashboard inputs
     private final LoggedLazyAutoChooser autoChooser;
+
+    // State Machines
+    private final StateMachine2 intakeAndDriveAlignStateMachine;
 
     /** The container for the robot. Contains subsystems, OI devices, and commands. */
     public RobotContainer() {
@@ -60,6 +68,8 @@ public class RobotContainer {
 
                 // No cameras on real robot yet
                 vision = new Vision(RobotState.getInstance());
+
+                intake = new Intake(new IntakeIOTalonFX());
 
                 // The ModuleIOTalonFXS implementation provides an example implementation for
                 // TalonFXS controller connected to a CANdi with a PWM encoder. The
@@ -125,6 +135,8 @@ public class RobotContainer {
                                 () -> AllianceFlipUtil.apply(SimRobot.getInstance()
                                         .getSwerveDriveSimulation()
                                         .getSimulatedDriveTrainPose())));
+
+                intake = new Intake(new IntakeIOSim());
                 break;
 
             default:
@@ -138,6 +150,7 @@ public class RobotContainer {
                         pose -> {});
 
                 vision = new Vision(RobotState.getInstance());
+                intake = new Intake(new IntakeIO() {});
                 break;
         }
 
@@ -165,6 +178,8 @@ public class RobotContainer {
                 "Drive SysId (Dynamic Reverse)", () -> drive.sysIdDynamic(SysIdRoutine.Direction.kReverse));
 
         // Configure the button bindings
+        this.intakeAndDriveAlignStateMachine =
+                new StateMachine2(intake, drive).publishToNT("Drive+Intake").restartOnTeleop();
         configureButtonBindings();
     }
 
@@ -175,26 +190,33 @@ public class RobotContainer {
      * edu.wpi.first.wpilibj2.command.button.JoystickButton}.
      */
     private void configureButtonBindings() {
-        // Default command, normal field-relative drive
-        drive.setDefaultCommand(DriveCommands.joystickDrive(
-                drive, () -> -controller.getLeftY(), () -> -controller.getLeftX(), () -> -controller.getRightX()));
+        var intakeButton = controller.a();
 
-        // Lock to 0° when A button is held
-        controller
-                .a()
-                .whileTrue(DriveCommands.joystickDriveAtAngle(
-                        drive, () -> -controller.getLeftY(), () -> -controller.getLeftX(), () -> Rotation2d.kZero));
+        var INTAKE_NO_SHOOT = intakeAndDriveAlignStateMachine.defaultState("INTAKE_NO_SHOOT");
+        var SHOOT_NO_INTAKE = intakeAndDriveAlignStateMachine.state("SHOOT_NO_INTAKE");
 
-        // Switch to X pattern when X button is pressed
-        controller.x().onTrue(Commands.runOnce(drive::stopWithX, drive));
+        INTAKE_NO_SHOOT
+                .whileRunning(
+                        intake.runIntake(),
+                        DriveCommands.joystickDrive(
+                                drive,
+                                () -> -controller.getLeftY(),
+                                () -> -controller.getLeftX(),
+                                () -> -controller.getRightX()))
+                .onEnter(new InstantCommand(() -> System.out.println("Commands Initialized")))
+                .onTrigger(intakeButton, () -> SHOOT_NO_INTAKE);
 
-        // Reset gyro to 0° when B button is pressed
-        controller
-                .b()
-                .onTrue(Commands.runOnce(
-                                () -> drive.setPose(new Pose2d(drive.getPose().getTranslation(), Rotation2d.kZero)),
-                                drive)
-                        .ignoringDisable(true));
+        SHOOT_NO_INTAKE
+                .whileRunning(
+                        Commands.idle(intake),
+                        (DriveCommands.joystickDriveAtAngleWithLookahead(
+                                drive, () -> -controller.getLeftY(), () -> -controller.getLeftX(), pose -> {
+                                    return FieldConstants.Hub.innerCenterPoint
+                                            .toTranslation2d()
+                                            .minus(pose.getTranslation())
+                                            .getAngle();
+                                })))
+                .onTrigger(intakeButton, () -> INTAKE_NO_SHOOT);
     }
 
     /**
