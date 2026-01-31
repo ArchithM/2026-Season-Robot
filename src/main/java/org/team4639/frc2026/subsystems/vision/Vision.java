@@ -14,7 +14,6 @@ import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -89,7 +88,8 @@ public class Vision extends SubsystemBase {
             // Loop over pose observations
             for (var observation : inputs[cameraIndex].poseObservations) {
                 // Check whether to reject pose
-                boolean rejectPose = Arrays.stream(VisionFilters.values()).anyMatch(filter -> filter.getTest().test(observation));
+                boolean rejectPose = Arrays.stream(VisionFilters.values())
+                        .anyMatch(filter -> filter.getTest().test(observation));
 
                 // Add pose to log
                 robotPoses.add(observation.pose());
