@@ -2,6 +2,16 @@
 
 package org.team4639.frc2026.commands;
 
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
+
+import org.team4639.frc2026.RobotState;
+import org.team4639.frc2026.subsystems.drive.Drive;
+
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.filter.SlewRateLimiter;
@@ -17,13 +27,6 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.function.DoubleSupplier;
-import java.util.function.Supplier;
-import org.team4639.frc2026.subsystems.drive.Drive;
 
 public class DriveCommands {
     private static final double DEADBAND = 0.1;
@@ -248,6 +251,12 @@ public class DriveCommands {
                                             + formatter.format(Units.metersToInches(wheelRadius))
                                             + " inches");
                                 })));
+    }
+
+    public static Rotation2d getNearestDiagonal(){
+        double currentAngle = RobotState.getInstance().getEstimatedPose().getRotation().getDegrees();
+        double closestAngle = Math.round((currentAngle-45+360)%360/90) * 90 + 45;
+        return Rotation2d.fromDegrees(closestAngle);
     }
 
     private static class WheelRadiusCharacterizationState {
