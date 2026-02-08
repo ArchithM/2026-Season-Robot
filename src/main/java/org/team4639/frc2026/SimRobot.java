@@ -6,10 +6,15 @@ import static edu.wpi.first.units.Units.Inches;
 import static edu.wpi.first.units.Units.Kilograms;
 
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import lombok.Getter;
 import lombok.Setter;
+
+import org.dyn4j.dynamics.Body;
+import org.dyn4j.geometry.Geometry;
+import org.dyn4j.world.World;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.COTS;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
@@ -48,6 +53,11 @@ public class SimRobot extends VirtualSubsystem {
             Logger.recordOutput("Sim/SimulatedDrivetrainPose", swerveDriveSimulation.getSimulatedDriveTrainPose());
             Logger.recordOutput("Sim/Fuel", SimulatedArena.getInstance().getGamePiecesArrayByType("Fuel"));
         }
+        Logger.recordOutput("Sim/ComponentPoses", new Pose3d[] {
+            new Pose3d(),
+            new Pose3d(),
+            new Pose3d()
+        });
     }
 
     public void setupDriveSim() {
