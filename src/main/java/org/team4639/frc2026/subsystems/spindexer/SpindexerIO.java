@@ -1,0 +1,24 @@
+/* Copyright (c) 2025-2026 FRC 4639. */
+
+package org.team4639.frc2026.subsystems.spindexer;
+
+import org.littletonrobotics.junction.AutoLog;
+
+public interface SpindexerIO {
+
+    default void setVoltage(double appliedVolts) {}
+
+    default void setRotorVelocityRPM(double targetVelocity) {}
+
+    default void updateInputs(SpindexerIOInputs inputs) {}
+
+    @AutoLog
+    class SpindexerIOInputs {
+        public boolean connected = true;
+        public double volts;
+        public double amps;
+        public double rotationsPerSecond;
+        public double celsius;
+        public double rotations;
+    }
+}

@@ -1,0 +1,135 @@
+/* Copyright (c) 2025-2026 FRC 4639. */
+
+package org.team4639.frc2026.subsystems.intake;
+
+import edu.wpi.first.math.Pair;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj2.command.Subsystem;
+import lombok.Getter;
+import lombok.Setter;
+import org.littletonrobotics.junction.Logger;
+import org.team4639.frc2026.RobotState;
+import org.team4639.lib.util.FullSubsystem;
+
+public class Intake extends FullSubsystem {
+    public static final double EXTENSION_PROTECTION_PROPORTION_THRESHOLD = 0.55;
+    private final RobotState state;
+    private final IntakeRollerIO rollerIO;
+    private final IntakeRollerIOInputsAutoLogged rollerInputs = new IntakeRollerIOInputsAutoLogged();
+
+    // desired intake surface velocity
+    private final double INTAKE_SURFACE_VELOCITY_FEET_PER_SECOND = 126.0;
+
+    @Getter
+    private final IntakeRollerSysID rollerSysID = new IntakeRollerSysID.IntakeRollerSysIDWPI(this, rollerInputs);
+
+    @Setter
+    private double MANUAL_VOLTS;
+
+    public enum WantedState {
+        IDLE,
+        INTAKE,
+        OUTTAKE,
+        MANUAL
+    }
+
+    public enum SystemState {
+        IDLE,
+        INTAKE,
+        OUTTAKE,
+        MANUAL
+    }
+
+    @Setter
+    private WantedState wantedState = WantedState.IDLE;
+
+    private SystemState systemState = SystemState.IDLE;
+
+    public final Subsystem dummy = new Subsystem() {};
+
+    public Intake(IntakeRollerIO rollerIO, RobotState state) {
+        this.rollerIO = rollerIO;
+        this.state = state;
+        rollerIO.updateInputs(rollerInputs);
+        setDefaultCommand(run(this::runStateMachine));
+
+        Logger.recordOutput("Intake/SystemState", systemState.toString());
+    }
+
+    @Override
+    public void periodicBeforeScheduler() {
+        rollerIO.updateInputs(rollerInputs);
+        Logger.processInputs("Intake Rollers", rollerInputs);
+    }
+
+    @Override
+    public void periodic() {}
+
+    @Override
+    public void periodicAfterScheduler() {
+        state.setIntakeStates(new Pair<>(this.wantedState, this.systemState));
+
+        state.acceptCANMeasurement(rollerInputs.connected);
+        state.acceptTemperatureMeasurement(rollerInputs.celsius);
+    }
+
+    public SystemState handleStateTransitions() {
+        return switch (wantedState) {
+            case IDLE -> SystemState.IDLE;
+            case INTAKE -> {
+                if (state.getIntakeExtensionFraction() < EXTENSION_PROTECTION_PROPORTION_THRESHOLD
+                        && state.useIntakeProtection()) {
+                    yield SystemState.IDLE;
+                } else {
+                    yield SystemState.INTAKE;
+                }
+            }
+            case OUTTAKE -> {
+                if (state.getIntakeExtensionFraction() < EXTENSION_PROTECTION_PROPORTION_THRESHOLD) {
+                    yield SystemState.IDLE;
+                } else {
+                    yield SystemState.OUTTAKE;
+                }
+            }
+            case MANUAL -> SystemState.MANUAL;
+        };
+    }
+
+    public void handleIdle() {
+        rollerIO.setSurfaceVelocityFeetPerSecond(0);
+    }
+
+    public void handleIntaking() {
+        rollerIO.setSurfaceVelocityFeetPerSecond(INTAKE_SURFACE_VELOCITY_FEET_PER_SECOND);
+    }
+
+    public void handleOuttaking() {
+        rollerIO.setSurfaceVelocityFeetPerSecond(-INTAKE_SURFACE_VELOCITY_FEET_PER_SECOND);
+    }
+
+    public void handleManual() {
+        rollerIO.setVoltage(MANUAL_VOLTS);
+    }
+
+    public void setRollerVoltage(double volts) {
+        rollerIO.setVoltage(volts);
+    }
+
+    private void runStateMachine() {
+        SystemState newState = handleStateTransitions();
+        if (newState != systemState) {
+            Logger.recordOutput("Intake/SystemState", newState.toString());
+            systemState = newState;
+        }
+
+        if (DriverStation.isDisabled()) {
+            systemState = SystemState.IDLE;
+        }
+
+        switch (systemState) {
+            case IDLE -> handleIdle();
+            case INTAKE -> handleIntaking();
+            case OUTTAKE -> handleOuttaking();
+        }
+    }
+}

@@ -2,6 +2,11 @@
 
 package org.team4639.frc2026;
 
+import com.ctre.phoenix6.SignalLogger;
+import com.pathplanner.lib.commands.PathfindingCommand;
+import edu.wpi.first.wpilibj.Threads;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import org.littletonrobotics.junction.LogFileUtil;
@@ -10,16 +15,22 @@ import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.NT4Publisher;
 import org.littletonrobotics.junction.wpilog.WPILOGReader;
 import org.littletonrobotics.junction.wpilog.WPILOGWriter;
+import org.littletonrobotics.urcl.URCL;
+import org.team4639.lib.util.FullSubsystem;
+import org.team4639.lib.util.LoggedTracer;
+import org.team4639.lib.util.VirtualSubsystem;
 
 /**
- * The VM is configured to automatically run this class, and to call the functions corresponding to
- * each mode, as described in the TimedRobot documentation. If you change the name of this class or
- * the package after creating this project, you must also update the build.gradle file in the
+ * The VM is configured to automatically run this class, and to call the
+ * functions corresponding to each mode, as described in the TimedRobot
+ * documentation. If you change the name of this class or the package after
+ * creating this project, you must also update the build.gradle file in the
  * project.
  */
 public class Robot extends LoggedRobot {
     private Command autonomousCommand;
     private RobotContainer robotContainer;
+    private final double bootupTimestamp;
 
     public Robot() {
         // Record metadata
@@ -61,17 +72,30 @@ public class Robot extends LoggedRobot {
         // Start AdvantageKit logger
         Logger.start();
 
+        // Start CTRE Logger and URCL if tuning mode on
+        if (Constants.tuningMode) {
+            SignalLogger.enableAutoLogging(true);
+            Logger.registerURCL(URCL.startExternal(Constants.URCLConstants.shooterIDtoName));
+        }
+
         // Instantiate our RobotContainer. This will perform all our button bindings,
         // and put our autonomous chooser on the dashboard.
         robotContainer = new RobotContainer();
+
+        bootupTimestamp = Timer.getTimestamp();
+
+        CommandScheduler.getInstance().schedule(PathfindingCommand.warmupCommand());
     }
 
     /** This function is called periodically during all modes. */
     @Override
     public void robotPeriodic() {
+        LoggedTracer.reset();
+        VirtualSubsystem.runAllPeriodic();
+        FullSubsystem.runAllPeriodicBeforeScheduler();
         // Optionally switch the thread to high priority to improve loop
         // timing (see the template project documentation for details)
-        // Threads.setCurrentThreadPriority(true, 99);
+        Threads.setCurrentThreadPriority(true, 99);
 
         // Runs the Scheduler. This is responsible for polling buttons, adding
         // newly-scheduled commands, running already-scheduled commands, removing
@@ -81,7 +105,14 @@ public class Robot extends LoggedRobot {
         CommandScheduler.getInstance().run();
 
         // Return to non-RT thread priority (do not modify the first argument)
-        // Threads.setCurrentThreadPriority(false, 10);
+        Threads.setCurrentThreadPriority(false, 10);
+        LoggedTracer.record("Commands");
+        VirtualSubsystem.runAllPeriodicAfterScheduler();
+        FullSubsystem.runAllPeriodicAfterScheduler();
+        LoggedTracer.record("PeriodicAfterScheduler");
+
+        SmartDashboard.putNumber("Match Time", Timer.getMatchTime());
+        SmartDashboard.putNumber("Run Time", Timer.getTimestamp() - bootupTimestamp);
     }
 
     /** This function is called once when the robot is disabled. */
@@ -92,7 +123,10 @@ public class Robot extends LoggedRobot {
     @Override
     public void disabledPeriodic() {}
 
-    /** This autonomous runs the autonomous command selected by your {@link RobotContainer} class. */
+    /**
+     * This autonomous runs the autonomous command selected by your
+     * {@link RobotContainer} class.
+     */
     @Override
     public void autonomousInit() {
         autonomousCommand = robotContainer.getAutonomousCommand();

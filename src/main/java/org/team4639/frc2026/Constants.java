@@ -2,12 +2,16 @@
 
 package org.team4639.frc2026;
 
+import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.RobotBase;
+import java.util.Map;
+import org.team4639.frc2026.constants.ports.Netherite;
 
 /**
- * This class defines the runtime mode used by AdvantageKit. The mode is always "real" when running
- * on a roboRIO. Change the value of "simMode" to switch between "sim" (physics sim) and "replay"
- * (log replay from a file).
+ * This class defines the runtime mode used by AdvantageKit. The mode is always
+ * "real" when running on a roboRIO. Change the value of "simMode" to switch
+ * between "sim" (physics sim) and "replay" (log replay from a file).
  */
 public final class Constants {
     public static final Mode simMode = Mode.SIM;
@@ -16,7 +20,7 @@ public final class Constants {
     public static final boolean tuningMode = true;
     public static final boolean disableHAL = false;
 
-    public static enum Mode {
+    public enum Mode {
         /** Running on a real robot. */
         REAL,
 
@@ -25,5 +29,26 @@ public final class Constants {
 
         /** Replaying from a log file. */
         REPLAY
+    }
+
+    public static final class RobotConstants {
+        public static final double ROBOT_MASS_KG = 50;
+        public static final double ROBOT_MOI = 3.97;
+        public static final double WHEEL_COF = 1.5;
+    }
+
+    public static final class SimConstants {
+        public static final Translation3d originToTurretRotation =
+                new Translation3d(-Units.inchesToMeters(5.84), 0, Units.inchesToMeters(13.25));
+        public static final Translation3d originToHoodRotation =
+                new Translation3d(-Units.inchesToMeters(1.834), 0, Units.inchesToMeters(16.625));
+        public static final Translation3d intakeExtendedTranslation =
+                new Translation3d(Units.inchesToMeters(10.396), 0, Units.inchesToMeters(-3.277));
+    }
+
+    public static final class URCLConstants {
+        public static final Map<Integer, String> shooterIDtoName = Map.of(
+                Netherite.portConfiguration.ShooterMotorLeftID.getDeviceNumber(), "Shooter Left",
+                Netherite.portConfiguration.ShooterMotorRightID.getDeviceNumber(), "Shooter Right");
     }
 }

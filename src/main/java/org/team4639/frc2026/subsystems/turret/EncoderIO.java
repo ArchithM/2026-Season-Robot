@@ -1,0 +1,17 @@
+/* Copyright (c) 2025-2026 FRC 4639. */
+
+package org.team4639.frc2026.subsystems.turret;
+
+import org.littletonrobotics.junction.AutoLog;
+
+public interface EncoderIO {
+    default void updateInputs(EncoderIOInputs inputs) {}
+
+    @AutoLog
+    class EncoderIOInputs {
+        public double positionRotations = 0.0;
+        public double positionWithoutOffset = 0.0;
+        public double relativeRotations = 0.0;
+        public double relativeRotationsPlusBootPosition = 0.0;
+    }
+}

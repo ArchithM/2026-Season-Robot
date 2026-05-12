@@ -1,0 +1,89 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 6.904495614035088,
+        "y": 5.5832127192982455
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 6.8916503075667706,
+        "y": 7.8495124046699924
+      },
+      "isLocked": false,
+      "linkedName": "CYCM"
+    },
+    {
+      "anchor": {
+        "x": 4.63550983899821,
+        "y": 7.450447227191413
+      },
+      "prevControl": {
+        "x": 5.807025862068966,
+        "y": 7.446023706896551
+      },
+      "nextControl": {
+        "x": 3.744477004741699,
+        "y": 7.453811672703127
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 2.8182647584973166,
+        "y": 7.239516994633274
+      },
+      "prevControl": {
+        "x": 3.7215241228070175,
+        "y": 7.467993421052631
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "LSH"
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.9976359338061462,
+      "rotationDegrees": 179.28811993236144
+    }
+  ],
+  "constraintZones": [
+    {
+      "name": "Constraints Zone",
+      "minWaypointRelativePos": 0.3407155025553663,
+      "maxWaypointRelativePos": 0.7700170357751278,
+      "constraints": {
+        "maxVelocity": 1.0,
+        "maxAcceleration": 3.0,
+        "maxAngularVelocity": 540.0,
+        "maxAngularAcceleration": 720.0,
+        "nominalVoltage": 12.0,
+        "unlimited": false
+      }
+    }
+  ],
+  "pointTowardsZones": [],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 3.0,
+    "maxAcceleration": 6.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 179.03459766221124
+  },
+  "reversed": false,
+  "folder": null,
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": -90.0
+  },
+  "useDefaultConstraints": true
+}

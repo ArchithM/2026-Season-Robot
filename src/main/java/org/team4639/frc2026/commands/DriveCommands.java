@@ -12,8 +12,6 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.util.Units;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -27,14 +25,18 @@ import org.team4639.frc2026.subsystems.drive.Drive;
 
 public class DriveCommands {
     private static final double DEADBAND = 0.1;
-    private static final double ANGLE_KP = 5.0;
-    private static final double ANGLE_KD = 0.4;
+    private static final double ANGLE_KP = 4.0;
+    private static final double ANGLE_KD = 0.0;
     private static final double ANGLE_MAX_VELOCITY = 8.0;
     private static final double ANGLE_MAX_ACCELERATION = 20.0;
     private static final double FF_START_DELAY = 2.0; // Secs
     private static final double FF_RAMP_RATE = 0.1; // Volts/Sec
     private static final double WHEEL_RADIUS_MAX_VELOCITY = 0.25; // Rad/Sec
     private static final double WHEEL_RADIUS_RAMP_RATE = 0.05; // Rad/Sec^2
+    private static final double ALIGN_FF = 1.0;
+
+    private static final SlewRateLimiter xLimiter = new SlewRateLimiter(1);
+    private static final SlewRateLimiter yLimiter = new SlewRateLimiter(1);
 
     private DriveCommands() {}
 
@@ -53,9 +55,9 @@ public class DriveCommands {
     }
 
     /**
-     * Field relative drive command using two joysticks (controlling linear and angular velocities).
+     * Field Relative Drive with wheel lock when zero inputs applied.
      */
-    public static Command joystickDrive(
+    public static Command joystickDriveWithX(
             Drive drive, DoubleSupplier xSupplier, DoubleSupplier ySupplier, DoubleSupplier omegaSupplier) {
         return Commands.run(
                 () -> {
@@ -70,23 +72,28 @@ public class DriveCommands {
                     omega = Math.copySign(omega * omega, omega);
 
                     // Convert to field relative speeds & send command
-                    ChassisSpeeds speeds = new ChassisSpeeds(
-                            linearVelocity.getX() * drive.getMaxLinearSpeedMetersPerSec(),
-                            linearVelocity.getY() * drive.getMaxLinearSpeedMetersPerSec(),
-                            omega * drive.getMaxAngularSpeedRadPerSec());
-                    boolean isFlipped = DriverStation.getAlliance().isPresent()
-                            && DriverStation.getAlliance().get() == Alliance.Red;
-                    drive.runVelocity(ChassisSpeeds.fromFieldRelativeSpeeds(
-                            speeds,
-                            isFlipped ? drive.getRotation().plus(new Rotation2d(Math.PI)) : drive.getRotation()));
+                    ChassisSpeeds speeds;
+                    if (SuperstructureCommands.tryingToShoot) {
+                        speeds = new ChassisSpeeds((linearVelocity.getX() * 2), (linearVelocity.getY() * 2), omega * 2);
+                    } else {
+                        speeds = new ChassisSpeeds(
+                                (linearVelocity.getX() * drive.getMaxLinearSpeedMetersPerSec()),
+                                (linearVelocity.getY() * drive.getMaxLinearSpeedMetersPerSec()),
+                                omega * drive.getMaxAngularSpeedRadPerSec());
+                    }
+
+                    if (MathUtil.isNear(0, speeds.vxMetersPerSecond, 1e-9)
+                            && MathUtil.isNear(0, speeds.vyMetersPerSecond, 1e-9)
+                            && MathUtil.isNear(0, speeds.omegaRadiansPerSecond, 1e-9)) drive.stopWithX();
+                    else drive.runVelocity(ChassisSpeeds.fromFieldRelativeSpeeds(speeds, drive.getRotation()));
                 },
                 drive);
     }
 
     /**
-     * Field relative drive command using joystick for linear control and PID for angular control.
-     * Possible use cases include snapping to an angle, aiming at a vision target, or controlling
-     * absolute rotation with a joystick.
+     * Field relative drive command using joystick for linear control and PID for
+     * angular control. Possible use cases include snapping to an angle, aiming at a
+     * vision target, or controlling absolute rotation with a joystick.
      */
     public static Command joystickDriveAtAngle(
             Drive drive, DoubleSupplier xSupplier, DoubleSupplier ySupplier, Supplier<Rotation2d> rotationSupplier) {
@@ -113,8 +120,7 @@ public class DriveCommands {
                                     linearVelocity.getX() * drive.getMaxLinearSpeedMetersPerSec(),
                                     linearVelocity.getY() * drive.getMaxLinearSpeedMetersPerSec(),
                                     omega);
-                            boolean isFlipped = DriverStation.getAlliance().isPresent()
-                                    && DriverStation.getAlliance().get() == Alliance.Red;
+                            boolean isFlipped = false;
                             drive.runVelocity(ChassisSpeeds.fromFieldRelativeSpeeds(
                                     speeds,
                                     isFlipped
@@ -130,7 +136,8 @@ public class DriveCommands {
     /**
      * Measures the velocity feedforward constants for the drive motors.
      *
-     * <p>This command should only be used in voltage control mode.
+     * <p>
+     * This command should only be used in voltage control mode.
      */
     public static Command feedforwardCharacterization(Drive drive) {
         List<Double> velocitySamples = new LinkedList<>();
@@ -243,11 +250,8 @@ public class DriveCommands {
                                     System.out.println("\tWheel Delta: " + formatter.format(wheelDelta) + " radians");
                                     System.out.println(
                                             "\tGyro Delta: " + formatter.format(state.gyroDelta) + " radians");
-                                    System.out.println("\tWheel Radius: "
-                                            + formatter.format(wheelRadius)
-                                            + " meters, "
-                                            + formatter.format(Units.metersToInches(wheelRadius))
-                                            + " inches");
+                                    System.out.println("\tWheel Radius: " + formatter.format(wheelRadius) + " meters, "
+                                            + formatter.format(Units.metersToInches(wheelRadius)) + " inches");
                                 })));
     }
 

@@ -11,11 +11,16 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.Alert.AlertType;
+import lombok.Getter;
 import org.littletonrobotics.junction.Logger;
+import org.team4639.frc2026.RobotState;
 
 public class Module {
     private final ModuleIO io;
+
+    @Getter
     private final ModuleIOInputsAutoLogged inputs = new ModuleIOInputsAutoLogged();
+
     private final int index;
     private final SwerveModuleConstants<TalonFXConfiguration, TalonFXConfiguration, CANcoderConfiguration> constants;
 
@@ -56,9 +61,18 @@ public class Module {
         driveDisconnectedAlert.set(!inputs.driveConnected);
         turnDisconnectedAlert.set(!inputs.turnConnected);
         turnEncoderDisconnectedAlert.set(!inputs.turnEncoderConnected);
+
+        RobotState.getInstance().acceptCANMeasurement(inputs.driveConnected);
+        RobotState.getInstance().acceptCANMeasurement(inputs.turnConnected);
+
+        RobotState.getInstance().acceptTemperatureMeasurement(inputs.driveTemperatureCelsius);
+        RobotState.getInstance().acceptTemperatureMeasurement(inputs.turnTemperatureCelsius);
     }
 
-    /** Runs the module with the specified setpoint state. Mutates the state to optimize it. */
+    /**
+     * Runs the module with the specified setpoint state. Mutates the state to
+     * optimize it.
+     */
     public void runSetpoint(SwerveModuleState state) {
         // Optimize velocity setpoint
         state.optimize(getAngle());
@@ -69,10 +83,17 @@ public class Module {
         io.setTurnPosition(state.angle);
     }
 
-    /** Runs the module with the specified output while controlling to zero degrees. */
+    /**
+     * Runs the module with the specified output while controlling to zero degrees.
+     */
     public void runCharacterization(double output) {
         io.setDriveOpenLoop(output);
         io.setTurnPosition(Rotation2d.kZero);
+    }
+
+    public void runCharacterizationAzimuth(double output) {
+        io.setDriveOpenLoop(0.0);
+        io.setTurnOpenLoop(output);
     }
 
     /** Disables all outputs to motors. */

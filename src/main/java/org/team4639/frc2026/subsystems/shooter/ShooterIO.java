@@ -1,0 +1,30 @@
+/* Copyright (c) 2025-2026 FRC 4639. */
+
+package org.team4639.frc2026.subsystems.shooter;
+
+import org.littletonrobotics.junction.AutoLog;
+
+public interface ShooterIO {
+
+    default void setVoltage(double appliedVolts) {}
+
+    default void setRPM(double targetRPM) {}
+
+    default void updateInputs(ShooterIOInputs inputs) {}
+
+    @AutoLog
+    class ShooterIOInputs {
+        public boolean rightConnected = true;
+        public boolean leftConnected = true;
+        public double leftVolts;
+        public double rightVolts;
+        public double leftAmps;
+        public double rightAmps;
+        public double leftCelsius;
+        public double rightTemperature;
+        public double leftRPM;
+        public double rightRPM;
+        public double leftRotations;
+        public double rightRotations;
+    }
+}
